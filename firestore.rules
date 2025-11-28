@@ -1,0 +1,240 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================================
+    // HELPER FUNCTIONS
+    // ============================================================================
+    
+
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isPatient() {
+      return isAuthenticated() && getUserRole() == 'patient';
+    }
+    
+    function isCaregiver() {
+      return isAuthenticated() && getUserRole() == 'caregiver';
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if caregiver is linked to this patient
+    function isLinkedCaregiver(patientId) {
+      return isCaregiver() && 
+             exists(/databases/$(database)/documents/caregiver_links/$(request.auth.uid + '_' + patientId));
+    }
+    // ============================================================================
+    // ADMIN FULL READ-ONLY ACCESS
+    // ============================================================================
++   match /{collection}/{document} {
++     allow read: if isAdmin();
++   }
+    
+    // ============================================================================
+    // USERS COLLECTION
+    // ============================================================================
+    
+    match /users/{userId} {
+      // Users can read their own document
+      allow read: if isOwner(userId);
+      
+      // Users can create their own document during signup
+      allow create: if isAuthenticated() && 
+                      request.auth.uid == userId &&
+                      request.resource.data.role in ['patient', 'caregiver'];
+      
+      // Users can update their own document
+      allow update: if isOwner(userId) && 
+                      request.resource.data.role == resource.data.role; // Cannot change role
+      
+      // Only user can delete their own account
+      allow delete: if isOwner(userId);
+    }
+    
+    // ============================================================================
+    // ADMIN USERS COLLECTION (Separate from regular users)
+    // ============================================================================
+    
+    match /admin_users/{adminId} {
+      allow read: if isAuthenticated() && request.auth.uid == adminId;
+      allow write: if false; // Only created manually or via cloud functions
+    }
+    
+    // ============================================================================
+    // MEDICINES COLLECTION
+    // ============================================================================
+    
+    match /medicines/{medicineId} {
+      // Patients can read their own medicines
+      // Caregivers can read medicines of linked patients
+      allow read: if isAuthenticated() && 
+                    (resource.data.userId == request.auth.uid || 
+                     isLinkedCaregiver(resource.data.userId));
+      
+      // Only patients can create medicines for themselves
+      allow create: if isPatient() && 
+                      request.resource.data.userId == request.auth.uid;
+      
+      // Only patients can update their own medicines
+      allow update: if isPatient() && 
+                      resource.data.userId == request.auth.uid;
+      
+      // Only patients can delete their own medicines
+      allow delete: if isPatient() && 
+                      resource.data.userId == request.auth.uid;
+    }
+    
+    // ============================================================================
+    // ADHERENCE HISTORY COLLECTION
+    // ============================================================================
+    
+    match /adherence_history/{historyId} {
+      // Patients and linked caregivers can read
+      allow read: if isAuthenticated() && 
+                    (resource.data.userId == request.auth.uid || 
+                     isLinkedCaregiver(resource.data.userId));
+      
+      // Only cloud functions can write adherence history
+      allow write: if false;
+    }
+    
+    // ============================================================================
+    // CAREGIVER LINKS COLLECTION
+    // ============================================================================
+    
+    match /caregiver_links/{linkId} {
+      // Format: caregiverId_patientId
+      
+      // Caregivers can read their own links
+      // Patients can read links to themselves
+      allow read: if isAuthenticated() && 
+                    (resource.data.caregiverId == request.auth.uid || 
+                     resource.data.patientId == request.auth.uid);
+      
+      // Caregivers can create links using valid codes
+      allow create: if isCaregiver() && 
+                      request.resource.data.caregiverId == request.auth.uid;
+      
+      // Patients and caregivers can delete their links
+      allow delete: if isAuthenticated() && 
+                      (resource.data.caregiverId == request.auth.uid || 
+                       resource.data.patientId == request.auth.uid);
+      
+      // No updates allowed (delete and recreate instead)
+      allow update: if false;
+    }
+    
+    // ============================================================================
+    // LINK CODES COLLECTION
+    // ============================================================================
+    
+    match /link_codes/{codeId} {
+      // Only patients can read their own codes
+      allow read: if isPatient() && resource.data.patientId == request.auth.uid;
+      
+      // Only patients can create codes for themselves
+      allow create: if isPatient() && 
+                      request.resource.data.patientId == request.auth.uid;
+      
+      // No updates or deletes (codes expire automatically)
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================================================
+    // CAREGIVER MESSAGES COLLECTION
+    // ============================================================================
+    
+    match /caregiver_messages/{messageId} {
+      // Patients and linked caregivers can read messages
+      allow read: if isAuthenticated() && 
+                    (resource.data.patientId == request.auth.uid || 
+                     (resource.data.caregiverId == request.auth.uid && isCaregiver()));
+      
+      // Only caregivers can create messages to linked patients
+      allow create: if isCaregiver() && 
+                      request.resource.data.caregiverId == request.auth.uid &&
+                      isLinkedCaregiver(request.resource.data.patientId);
+      
+      // No updates or deletes
+      allow update: if false;
+      allow delete: if false;
+    }
+    
+    // ============================================================================
+    // ADMIN ANALYTICS COLLECTION (Aggregated data only)
+    // ============================================================================
+    
+    match /admin_analytics/{docId} {
+      // Only admins can read analytics
+      allow read: if isAdmin();
+      
+      // Only cloud functions can write analytics
+      allow write: if false;
+    }
+    
+    // ============================================================================
+    // NOTIFICATIONS COLLECTION
+    // ============================================================================
+    
+    match /notifications/{notificationId} {
+      // Users can read their own notifications
+      allow read: if isAuthenticated() && 
+                    resource.data.userId == request.auth.uid;
+      
+      // Only cloud functions can write notifications
+      allow write: if false;
+    }
+    
+    // ============================================================================
+    // USER STATISTICS COLLECTION
+    // ============================================================================
+    
+    match /user_stats/{userId} {
+      // Patients and linked caregivers can read
+      allow read: if isAuthenticated() && 
+                    (userId == request.auth.uid || 
+                     isLinkedCaregiver(userId));
+      
+      // Only cloud functions can write stats
+      allow write: if false;
+    }
+    
+    // ============================================================================
+    // ACTIVITY LOGS COLLECTION
+    // ============================================================================
+    
+    match /activity_logs/{logId} {
+      // Patients and linked caregivers can read
+      allow read: if isAuthenticated() && 
+                    (resource.data.userId == request.auth.uid || 
+                     isLinkedCaregiver(resource.data.userId));
+      
+      // Only cloud functions can write logs
+      allow write: if false;
+    }
+    
+    // ============================================================================
+    // DENY ALL OTHER ACCESS
+    // ============================================================================
+    
+    // Explicitly deny access to any other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

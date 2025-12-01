@@ -69,3 +69,5 @@ node_modules/
 .dataconnect
 functions/serviceAccountKey.json
 .vercel
+.env.local
+serviceAccountKey.json

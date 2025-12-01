@@ -9,16 +9,12 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential
 } from 'firebase/auth';
+
 import { auth, db } from '../config/firebase';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 /**
- * Authentication Service
- * Handles all authentication-related operations
- */
-
-/**
- * Sign in user with email and password
+ * Sign in user
  * @param {string} email - User email
  * @param {string} password - User password
  * @returns {Promise<object>} User object
@@ -42,16 +38,13 @@ export const signIn = async (email, password) => {
  */
 export const signUp = async (email, password, displayName) => {
   try {
-    // Create user account
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
-    // Update profile with display name
     if (displayName) {
       await updateProfile(user, { displayName });
     }
 
-    // Create user document in Firestore
     await setDoc(doc(db, 'users', user.uid), {
       email: user.email,
       displayName: displayName || '',
@@ -104,10 +97,8 @@ export const updateUserProfile = async (updates) => {
     const user = auth.currentUser;
     if (!user) throw new Error('No user logged in');
 
-    // Update Firebase Auth profile
     await updateProfile(user, updates);
 
-    // Update Firestore document
     await updateDoc(doc(db, 'users', user.uid), {
       ...updates,
       updatedAt: serverTimestamp()
@@ -129,11 +120,9 @@ export const changePassword = async (currentPassword, newPassword) => {
     const user = auth.currentUser;
     if (!user || !user.email) throw new Error('No user logged in');
 
-    // Re-authenticate user
     const credential = EmailAuthProvider.credential(user.email, currentPassword);
     await reauthenticateWithCredential(user, credential);
 
-    // Update password
     await updatePassword(user, newPassword);
   } catch (error) {
     console.error('Change password error:', error);
@@ -152,14 +141,11 @@ export const changeEmail = async (newEmail, password) => {
     const user = auth.currentUser;
     if (!user || !user.email) throw new Error('No user logged in');
 
-    // Re-authenticate user
     const credential = EmailAuthProvider.credential(user.email, password);
     await reauthenticateWithCredential(user, credential);
 
-    // Update email
     await updateEmail(user, newEmail);
 
-    // Update Firestore
     await updateDoc(doc(db, 'users', user.uid), {
       email: newEmail,
       updatedAt: serverTimestamp()

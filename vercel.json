@@ -1,35 +1,18 @@
 {
-  "functions": {
-    "functions/**/*.js": {
-      "runtime": "nodejs22.x"
-    }
-  },
-  "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/functions/$1.js"
-    }
-  ],
   "crons": [
-    {
-      "path": "/api/cron/send-medicine-reminders",
-      "schedule": "0 8 * * *"
-    },
     {
       "path": "/api/cron/send-daily-reports",
       "schedule": "0 20 * * *"
+    },
+    {
+      "path": "/api/cron/send-weekly-reports",
+      "schedule": "0 20 * * 0"
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }
-```
-
-**Option 2: If that doesn't work, try this:**
-
-Check if you have a `.node-version` or `.nvmrc` file in your project root. If you do, update it to:
-```
-22
-```
-
-Or create a `.node-version` file with just:
-```
-22

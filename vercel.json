@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/send-medicine-reminders",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/send-daily-reports",
@@ -17,7 +17,6 @@
       "schedule": "0 * * * *"
     }
   ],
-
   "rewrites": [
     {
       "source": "/(.*)",

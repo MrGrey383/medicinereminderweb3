@@ -1,27 +1,13 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    },
-    {
-      "src": "functions/**/*.js",
-      "use": "@vercel/node",
-      "config": {
-        "maxDuration": 10
-      }
+  "functions": {
+    "functions/**/*.js": {
+      "runtime": "nodejs22.x"
     }
-  ],
-  "routes": [
+  },
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/functions/$1.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/index.html"
+      "source": "/api/(.*)",
+      "destination": "/functions/$1.js"
     }
   ],
   "crons": [
@@ -35,3 +21,15 @@
     }
   ]
 }
+```
+
+**Option 2: If that doesn't work, try this:**
+
+Check if you have a `.node-version` or `.nvmrc` file in your project root. If you do, update it to:
+```
+22
+```
+
+Or create a `.node-version` file with just:
+```
+22

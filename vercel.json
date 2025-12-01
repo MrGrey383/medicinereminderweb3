@@ -8,7 +8,10 @@
     },
     {
       "src": "functions/**/*.js",
-      "use": "@vercel/node@3"
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 10
+      }
     }
   ],
   "routes": [

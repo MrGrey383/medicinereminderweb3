@@ -1,20 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/cron/send-medicine-reminders",
-      "schedule": "*/30 * * * *"
-    },
-    {
       "path": "/api/cron/send-daily-reports",
       "schedule": "0 20 * * *"
     },
     {
       "path": "/api/cron/send-weekly-reports",
       "schedule": "0 20 * * 0"
-    },
-    {
-      "path": "/api/cron/check-missed-doses",
-      "schedule": "0 * * * *"
     }
   ],
   "rewrites": [
